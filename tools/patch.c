@@ -14,6 +14,7 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "kallsym.h"
 #include "patch.h"
 #include "kallsym.h"
 #include "image.h"
@@ -349,7 +350,7 @@ static void hexstr_to_bytes(const char *hexstr, size_t out_len, unsigned char *o
     }
 }
 
-static void hex_patch(char *img, size_t imglen,
+int hex_patch(char *img, size_t imglen,
                       const char *pattern_hex,
                       const char *replace_hex)
 {
@@ -364,14 +365,14 @@ static void hex_patch(char *img, size_t imglen,
     hexstr_to_bytes(replace_hex, replacelen, replace);
 
     unsigned char *p = memmem(img, imglen, pattern, patternlen);
-    if (p) {
-        memcpy(p, replace, replacelen);
-    }
+    if (p) memcpy(p, replace, replacelen);
+    else return -1;
+    return 0;
 }
 
-static void disable_pi_map(char *img, size_t imglen)
+static int disable_pi_map(char *img, size_t imglen)
 {
-    hex_patch(
+    return hex_patch(
         img,
         imglen,
         "E60316AAE7031F2A3411889A",
@@ -404,8 +405,20 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
     memcpy(kallsym_kimg, pimg.kimg, pimg.ori_kimg_len);
     kallsym_t kallsym = { 0 };
 
-    if (kernel_if_need_patch(&kallsym, kallsym_kimg ,pimg.ori_kimg_len))disable_pi_map(kernel_file.kimg, kernel_file.kimg_len);
-    
+    int kver = 0;
+    find_linux_banner(&kallsym, kallsym_kimg, pimg.ori_kimg_len, &kver);
+    if (kver > 395008) // greater than 6.7
+    {
+        if(!disable_pi_map(kernel_file.kimg, kernel_file.kimg_len))
+        {
+            tools_logi("disabled PI_MAP for kernel version > 6.12.23\n");
+        }
+        else
+        {
+            tools_logi("kernel have patched or not found\n");
+        }
+    }
+
     if (analyze_kallsym_info(&kallsym, kallsym_kimg, pimg.ori_kimg_len, ARM64, 1)) {
         tools_loge_exit("analyze_kallsym_info error\n");
     }
