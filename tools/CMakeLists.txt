@@ -13,7 +13,6 @@ set(SOURCES
 	symbol.c
 	kpm.c
 	common.c
-	sha256.c
 )
 
 add_executable(
