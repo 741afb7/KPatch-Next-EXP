@@ -406,6 +406,8 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
 
     int kver = 0;
     find_linux_banner(&kallsym, kallsym_kimg, pimg.ori_kimg_len, &kver);
+    bool is_gki = kver >= 330240;  // 5.10
+    tools_logi("is_gki: %s\n", is_gki ? "true" : "false");
     if (kver > 395008) // greater than 6.7
     {
         if(!disable_pi_map(kernel_file.kimg, kernel_file.kimg_len))
@@ -554,7 +556,7 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
     setup->extra_size = extra_size;
 
     int map_start, map_max_size;
-    select_map_area(&kallsym, kallsym_kimg, &map_start, &map_max_size);
+    select_map_area(&kallsym, kallsym_kimg, &map_start, &map_max_size, is_gki);
     setup->map_offset = map_start;
     setup->map_max_size = map_max_size;
     tools_logi("map_start: 0x%x, max_size: 0x%x\n", map_start, map_max_size);
