@@ -13,15 +13,16 @@
 // transit0
 typedef uint64_t (*transit0_func_t)();
 
+#define current_fp_hook_chain() ({ \
+    uint64_t chain_va; \
+    asm volatile("mov %0, x16" : "=r"(chain_va)); \
+    (fp_hook_chain_t *)chain_va; \
+})
+
 uint64_t __attribute__((section(".fp.transit0.text"))) __attribute__((__noinline__)) _fp_transit0()
 {
-    uint64_t this_va;
-    asm volatile("adr %0, ." : "=r"(this_va));
-    uint32_t *vptr = (uint32_t *)this_va;
-    while (*--vptr != ARM64_NOP) {
-    };
-    vptr--;
-    fp_hook_chain_t *hook_chain = local_container_of((uint64_t)vptr, fp_hook_chain_t, transit);
+    fp_hook_chain_t *hook_chain = current_fp_hook_chain();
+    if (!hook_chain) return 0;
     hook_fargs0_t fargs;
     fargs.skip_origin = 0;
     fargs.chain = hook_chain;
@@ -49,13 +50,8 @@ typedef uint64_t (*transit4_func_t)(uint64_t, uint64_t, uint64_t, uint64_t);
 uint64_t __attribute__((section(".fp.transit4.text"))) __attribute__((__noinline__))
 _fp_transit4(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
 {
-    uint64_t this_va;
-    asm volatile("adr %0, ." : "=r"(this_va));
-    uint32_t *vptr = (uint32_t *)this_va;
-    while (*--vptr != ARM64_NOP) {
-    };
-    vptr--;
-    fp_hook_chain_t *hook_chain = local_container_of((uint64_t)vptr, fp_hook_chain_t, transit);
+    fp_hook_chain_t *hook_chain = current_fp_hook_chain();
+    if (!hook_chain) return 0;
     hook_fargs4_t fargs;
     fargs.skip_origin = 0;
     fargs.arg0 = arg0;
@@ -89,13 +85,8 @@ uint64_t __attribute__((section(".fp.transit8.text"))) __attribute__((__noinline
 _fp_transit8(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6,
              uint64_t arg7)
 {
-    uint64_t this_va;
-    asm volatile("adr %0, ." : "=r"(this_va));
-    uint32_t *vptr = (uint32_t *)this_va;
-    while (*--vptr != ARM64_NOP) {
-    };
-    vptr--;
-    fp_hook_chain_t *hook_chain = local_container_of((uint64_t)vptr, fp_hook_chain_t, transit);
+    fp_hook_chain_t *hook_chain = current_fp_hook_chain();
+    if (!hook_chain) return 0;
     hook_fargs8_t fargs;
     fargs.skip_origin = 0;
     fargs.arg0 = arg0;
@@ -135,13 +126,8 @@ uint64_t __attribute__((section(".fp.transit12.text"))) __attribute__((__noinlin
 _fp_transit12(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6,
               uint64_t arg7, uint64_t arg8, uint64_t arg9, uint64_t arg10, uint64_t arg11)
 {
-    uint64_t this_va;
-    asm volatile("adr %0, ." : "=r"(this_va));
-    uint32_t *vptr = (uint32_t *)this_va;
-    while (*--vptr != ARM64_NOP) {
-    };
-    vptr--;
-    fp_hook_chain_t *hook_chain = local_container_of((uint64_t)vptr, fp_hook_chain_t, transit);
+    fp_hook_chain_t *hook_chain = current_fp_hook_chain();
+    if (!hook_chain) return 0;
     hook_fargs12_t fargs;
     fargs.skip_origin = 0;
     fargs.arg0 = arg0;
@@ -208,12 +194,17 @@ static hook_err_t hook_chain_prepare(uint32_t *transit, int32_t argno)
     int32_t transit_num = (transit_end - transit_start) / 4;
 
     // todo: assert
-    if (transit_num >= TRANSIT_INST_NUM) return -HOOK_TRANSIT_NO_MEM;
+    if (transit_num + 6 > TRANSIT_INST_NUM) return -HOOK_TRANSIT_NO_MEM;
 
     transit[0] = ARM64_BTI_JC;
-    transit[1] = ARM64_NOP;
+    transit[1] = 0x58000070; // LDR X16, #12
+    transit[2] = 0x14000004; // B #16
+    transit[3] = ARM64_NOP;
+    fp_hook_chain_t *chain = local_container_of(transit, fp_hook_chain_t, transit);
+    transit[4] = ((uint64_t)chain) & 0xFFFFFFFF;
+    transit[5] = ((uint64_t)chain) >> 32u;
     for (int i = 0; i < transit_num; i++) {
-        transit[i + 2] = ((uint32_t *)transit_start)[i];
+        transit[i + 6] = ((uint32_t *)transit_start)[i];
     }
     return HOOK_NO_ERR;
 }
