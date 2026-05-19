@@ -6,6 +6,13 @@
 #include "setup.h"
 #include "../version"
 
+uint64_t setup_find_kallsyms_lookup_name_offset(uint64_t kernel_pa, setup_preset_t *preset)
+{
+    (void)kernel_pa;
+    (void)preset;
+    return 0;
+}
+
 setup_header_t header __section(.setup.header) = { .magic = KP_MAGIC,
                                                    .kp_version.major = MAJOR,
                                                    .kp_version.minor = MINOR,
