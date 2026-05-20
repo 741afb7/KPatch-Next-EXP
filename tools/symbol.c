@@ -227,36 +227,42 @@ void select_map_area(kallsym_t *kallsym, char *image_buf, int imglen, int32_t *m
 
 int fillin_map_symbol(kallsym_t *kallsym, char *img_buf, map_symbol_t *symbol, int32_t target_is_be)
 {
-    bool use_legacy_memblock_fallback = false;
-    
+    memset(symbol, 0, sizeof(*symbol));
+
     symbol->memblock_reserve_relo = get_symbol_offset_exit(kallsym, img_buf, "memblock_reserve");
     symbol->memblock_free_relo = get_symbol_offset_exit(kallsym, img_buf, "memblock_free");
 
     symbol->memblock_mark_nomap_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_mark_nomap");
 
     symbol->memblock_phys_alloc_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_phys_alloc_try_nid");
+    if (symbol->memblock_phys_alloc_relo) {
+        symbol->memblock_phys_alloc_type = MAP_SYM_MEMBLOCK_PHYS_ALLOC_TRY_NID;
+    }
+
     symbol->memblock_virt_alloc_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_virt_alloc_try_nid");
+    if (symbol->memblock_virt_alloc_relo) {
+        symbol->memblock_virt_alloc_type = MAP_SYM_MEMBLOCK_VIRT_ALLOC_TRY_NID;
+    }
+
     uint64_t memblock_alloc_try_nid = get_symbol_offset_zero(kallsym, img_buf, "memblock_alloc_try_nid");
-    if (!symbol->memblock_virt_alloc_relo) symbol->memblock_virt_alloc_relo = memblock_alloc_try_nid;
-
-    if (!symbol->memblock_phys_alloc_relo) {
-        symbol->memblock_phys_alloc_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_find_in_range");
-        if (symbol->memblock_phys_alloc_relo) use_legacy_memblock_fallback = true;
+    if (!symbol->memblock_phys_alloc_relo && memblock_alloc_try_nid) {
+        symbol->memblock_phys_alloc_relo = memblock_alloc_try_nid;
+        symbol->memblock_phys_alloc_type = MAP_SYM_MEMBLOCK_ALLOC_TRY_NID;
     }
-
-    if (use_legacy_memblock_fallback) {
-        symbol->memblock_start_of_DRAM_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_start_of_DRAM");
+    if (!symbol->memblock_virt_alloc_relo && memblock_alloc_try_nid) {
+        symbol->memblock_virt_alloc_relo = memblock_alloc_try_nid;
+        symbol->memblock_virt_alloc_type = MAP_SYM_MEMBLOCK_VIRT_ALLOC_FROM_ALLOC_TRY_NID;
     }
 
     if (!symbol->memblock_phys_alloc_relo) {
-        tools_loge_exit("no symbol memblock alloc or memblock_find_in_range\n");
+        tools_loge_exit("no symbol memblock_phys_alloc_try_nid or memblock_alloc_try_nid\n");
     }
-    if (use_legacy_memblock_fallback && !symbol->memblock_start_of_DRAM_relo) {
-         tools_loge_exit("no symbol memblock_start_of_DRAM for legacy memblock fallback\n");
+    if (!symbol->memblock_virt_alloc_relo) {
+        tools_loge_exit("no symbol memblock_virt_alloc_try_nid or memblock_alloc_try_nid\n");
     }
 
-    if (use_legacy_memblock_fallback) {
-        tools_logi("use legacy memblock fallback: memblock_find_in_range + memblock_start_of_DRAM\n");
+    if (symbol->memblock_phys_alloc_type == MAP_SYM_MEMBLOCK_ALLOC_TRY_NID) {
+        tools_logi("use memblock_alloc_try_nid as map phys alloc\n");
     }
 
     if ((is_be() ^ target_is_be)) {

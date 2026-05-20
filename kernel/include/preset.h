@@ -24,7 +24,7 @@
 
 #define CONFIG_DEBUG (1 << 0)
 
-#define MAP_SYMBOL_NUM (6)
+#define MAP_SYMBOL_NUM (7)
 #define MAP_SYMBOL_SIZE (MAP_SYMBOL_NUM * 8)
 
 #define MAP_SYM_NONE 0
@@ -96,7 +96,8 @@ struct map_symbol
             uint64_t memblock_phys_alloc_relo;
             uint64_t memblock_virt_alloc_relo;
             uint64_t memblock_mark_nomap_relo;
-            uint64_t memblock_start_of_DRAM_relo;
+            uint64_t memblock_phys_alloc_type;
+            uint64_t memblock_virt_alloc_type;
         };
         char _cap[MAP_SYMBOL_SIZE];
     };

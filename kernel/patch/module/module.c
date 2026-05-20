@@ -539,7 +539,7 @@ long module_control0(const char *name, const char *ctl_args, char *__user out_ms
         goto out;
     }
 
-    if (!*mod->ctl0) {
+    if (!mod->ctl0 || !*mod->ctl0) {
         logkfe("no ctl0\n");
         rc = -ENOSYS;
         goto out;
@@ -575,7 +575,7 @@ long module_control1(const char *name, void *a1, void *a2, void *a3)
         goto out;
     }
 
-    if (!*mod->ctl1) {
+    if (!mod->ctl1 || !*mod->ctl1) {
         logkfe("no ctl1\n");
         rc = -ENOSYS;
         goto out;

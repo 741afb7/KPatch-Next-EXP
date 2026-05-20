@@ -9,10 +9,8 @@
 typedef uint64_t phys_addr_t;
 typedef int (*memblock_reserve_f)(phys_addr_t base, phys_addr_t size);
 typedef phys_addr_t (*memblock_phys_alloc_try_nid_f)(phys_addr_t size, phys_addr_t align, int nid);
-typedef phys_addr_t (*memblock_find_in_range_f)(phys_addr_t start, phys_addr_t end, phys_addr_t size, phys_addr_t align);
 typedef void *(*memblock_virt_alloc_try_nid_f)(phys_addr_t size, phys_addr_t align, phys_addr_t min_addr,
                                                phys_addr_t max_addr, int nid);
-typedef phys_addr_t (*memblock_start_of_DRAM_f)(void);
 typedef int (*memblock_free_f)(phys_addr_t base, phys_addr_t size);
 typedef int (*memblock_mark_nomap_f)(phys_addr_t base, phys_addr_t size);
 typedef int (*printk_f)(const char *fmt, ...);
@@ -49,28 +47,11 @@ static inline uint64_t phys_to_lm(map_data_t *data, uint64_t phys)
     return phys + data->linear_voffset;
 }
 
-static inline int use_legacy_memblock_fallback(map_data_t *data)
-{
-    return data->map_symbol.memblock_start_of_DRAM_relo != 0;
-}
-
-static inline uint64_t page_offset_from_bits(uint64_t va_bits)
-{
-    return ~((1ull << va_bits) - 1ull);
-}
-
 static uint64_t map_phys_alloc(map_data_t *data, uint64_t size, uint64_t align)
 {
-    if (!use_legacy_memblock_fallback(data)) {
+    if (data->map_symbol.memblock_phys_alloc_type == MAP_SYM_MEMBLOCK_PHYS_ALLOC_TRY_NID ||
+        data->map_symbol.memblock_phys_alloc_type == MAP_SYM_MEMBLOCK_ALLOC_TRY_NID) {
         return ((memblock_phys_alloc_try_nid_f)data->map_symbol.memblock_phys_alloc_relo)(size, align, NUMA_NO_NODE);
-    }
-
-    if (data->map_symbol.memblock_phys_alloc_relo) {
-        uint64_t start = ((memblock_find_in_range_f)data->map_symbol.memblock_phys_alloc_relo)(0, ~(uint64_t)0, size, align);
-        if (start && size) {
-            ((memblock_reserve_f)data->map_symbol.memblock_reserve_relo)(start, size);
-        }
-        return start;
     }
 
     return 0;
@@ -107,10 +88,11 @@ static __noinline void mem_proc(map_data_t *data)
     data->printk_relo += kernel_va;
 #endif
 
-    for (uint64_t *pos = (uint64_t *)&data->map_symbol;
-         pos < (uint64_t *)((uint8_t *)&data->map_symbol + sizeof(data->map_symbol)); pos++) {
-        if (*pos) *pos += kernel_va;
-    }
+    if (data->map_symbol.memblock_reserve_relo) data->map_symbol.memblock_reserve_relo += kernel_va;
+    if (data->map_symbol.memblock_free_relo) data->map_symbol.memblock_free_relo += kernel_va;
+    if (data->map_symbol.memblock_phys_alloc_relo) data->map_symbol.memblock_phys_alloc_relo += kernel_va;
+    if (data->map_symbol.memblock_virt_alloc_relo) data->map_symbol.memblock_virt_alloc_relo += kernel_va;
+    if (data->map_symbol.memblock_mark_nomap_relo) data->map_symbol.memblock_mark_nomap_relo += kernel_va;
 
     // pgtable
     uint64_t tcr_el1;
@@ -128,16 +110,12 @@ static __noinline void mem_proc(map_data_t *data)
     data->page_shift = page_shift;
 
     // linear
-    if (data->map_symbol.memblock_virt_alloc_relo && !use_legacy_memblock_fallback(data)) {
+    if (data->map_symbol.memblock_virt_alloc_relo) {
         uint64_t detect_phys =
             ((memblock_phys_alloc_try_nid_f)data->map_symbol.memblock_phys_alloc_relo)(0, 0x10, NUMA_NO_NODE);
         uint64_t detect_virt = (uint64_t)((memblock_virt_alloc_try_nid_f)data->map_symbol.memblock_virt_alloc_relo)(
             0, 0x10, detect_phys, detect_phys, NUMA_NO_NODE);
         data->linear_voffset = detect_virt - detect_phys;
-    } else if (use_legacy_memblock_fallback(data)) {
-        uint64_t dram_start =
-            ((memblock_start_of_DRAM_f)data->map_symbol.memblock_start_of_DRAM_relo)();
-        data->linear_voffset = page_offset_from_bits(va1_bits) - dram_start;
     } else {
         __builtin_trap();
     }
@@ -182,12 +160,7 @@ static uint64_t __noinline get_or_create_pte(map_data_t *data, uint64_t va, uint
             block_flag = 1;
         } else { // invalid, alloc
             if (lv != 3) {
-                if (use_legacy_memblock_fallback(data)) {
-                    pxd_pa = map_phys_alloc(data, page_size, page_size);
-                } else {
-                    pxd_pa = ((memblock_phys_alloc_try_nid_f)data->map_symbol.memblock_phys_alloc_relo)(
-                        page_size, page_size, NUMA_NO_NODE);
-                }
+                pxd_pa = map_phys_alloc(data, page_size, page_size);
                 alloc_flag = 1;
             } else {
                 pxd_pa = pa;
