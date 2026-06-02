@@ -10,6 +10,7 @@
 #include <syscall.h>
 #include <module.h>
 #include <predata.h>
+#include <symbol.h>
 #include <linux/string.h>
 
 void print_bootlog()
@@ -94,26 +95,38 @@ out:
     return;
 }
 
-static int extra_event_pre_kernel_init(const patch_extra_item_t *extra, const char *args, const void *data, void *udata)
+static int extra_event_load_kpm(const patch_extra_item_t *extra, const char *args, const void *data, void *udata)
 {
+    const char *event = (const char *)udata;
+    
+    if (!event) return 0;
+    
     if (extra->type == EXTRA_TYPE_KPM) {
-        if (!strcmp(EXTRA_EVENT_PRE_KERNEL_INIT, extra->event) || !extra->event[0]) {
-            int rc = load_module(data, extra->con_size, args, EXTRA_EVENT_PRE_KERNEL_INIT, 0);
-            log_boot("load kpm: %s, rc: %d\n", extra->name, rc);
+        if (!strcmp(event, extra->event) || (!extra->event[0] && !strcmp(event, EXTRA_EVENT_KPM_DEFAULT)))
+        {
+            int rc = load_module(data, extra->con_size, args, event, 0);
+            log_boot("load kpm: %s, event: %s, rc: %d\n", extra->name, event, rc);
         }
     }
     return 0;
 }
 
+void extra_event_init(const char *event)
+{
+    if (!event) return;
+    log_boot("event: %s\n", event);
+    on_each_extra_item(extra_event_load_kpm, (void *)event);
+}
+KP_EXPORT_SYMBOL(extra_event_init);
+
 static void before_kernel_init(hook_fargs4_t *args, void *udata)
 {
-    log_boot("event: %s\n", EXTRA_EVENT_PRE_KERNEL_INIT);
-    on_each_extra_item(extra_event_pre_kernel_init, 0);
+    extra_event_init(EXTRA_EVENT_PRE_KERNEL_INIT);
 }
 
 static void after_kernel_init(hook_fargs4_t *args, void *udata)
 {
-    log_boot("event: %s\n", EXTRA_EVENT_POST_KERNEL_INIT);
+    extra_event_init(EXTRA_EVENT_POST_KERNEL_INIT);
 }
 
 int patch()
@@ -133,6 +146,8 @@ int patch()
         log_boot("hook panic rc: %d\n", rc);
     }
     if (rc) return rc;
+
+    extra_event_init(EXTRA_EVENT_PAGING_INIT);
 
     // rest_init or cgroup_init
     unsigned long init_addr = patch_config->rest_init;
