@@ -55,15 +55,121 @@ int32_t try_get_symbol_offset_zero(kallsym_t *info, char *img, char *symbol)
     return find_suffixed_symbol(info, img, symbol);
 }
 
-// todo
-void select_map_area(kallsym_t *kallsym, char *image_buf, int32_t *map_start, int32_t *max_size, bool is_gki)
+static int get_cand_arr_symbol_offset_try(kallsym_t *kallsym, char *img_buf, const char **cand_arr, int cand_num,
+                                          const char **selected)
 {
-    int32_t addr = 0x200;
-    addr = get_symbol_offset_exit(kallsym, image_buf, "tcp_init_sock");
+    int offset = 0;
+
+    for (int i = 0; i < cand_num; i++) {
+        offset = try_get_symbol_offset_zero(kallsym, img_buf, (char *)cand_arr[i]);
+        if (offset) {
+            if (selected) *selected = cand_arr[i];
+            return offset;
+        }
+    }
+
+    if (selected) *selected = 0;
+    return 0;
+}
+
+bool is_usable_symbol_offset(int32_t offset, int imglen)
+{
+    return imglen >= 0x1000 && offset > 0 && offset <= imglen - 0x1000;
+}
+
+int32_t get_usable_symbol_offset_try(kallsym_t *kallsym, char *img_buf, int imglen, const char *symbol)
+{
+    int32_t offset = get_symbol_offset_zero(kallsym, img_buf, (char *)symbol);
+    if (is_usable_symbol_offset(offset, imglen)) {
+        return offset;
+    }
+
+    offset = find_suffixed_symbol(kallsym, img_buf, symbol);
+    if (is_usable_symbol_offset(offset, imglen)) {
+        return offset;
+    }
+
+    return 0;
+}
+
+int32_t select_symbol_lookup_anchor_offset(kallsym_t *kallsym, char *img_buf, int imglen, const char **selected)
+{
+    static const char *anchor_candidates[] = {
+        "show_stack",
+        "dump_backtrace",
+        "nmi_panic",
+        "panic",
+        "show_freq_kernel_log",
+        "input_handle_event",
+        "slow_avc_audit",
+        "avc_denied",
+        "tcp_init_sock",
+        "udp_init_sock",
+        "inet_create",
+        "inet_release",
+        "sock_init_data",
+        "sk_alloc",
+    };
+
+    for (int i = 0; i < (int)(sizeof(anchor_candidates) / sizeof(anchor_candidates[0])); i++) {
+        const char *name = anchor_candidates[i];
+        int32_t offset = get_usable_symbol_offset_try(kallsym, img_buf, imglen, name);
+        if (offset) {
+            if (selected) *selected = name;
+            return offset;
+        }
+    }
+
+    if (selected) *selected = 0;
+    return 0;
+}
+
+static int32_t get_map_anchor_offset(kallsym_t *kallsym, char *img_buf, int imglen, const char **selected)
+{
+    static const char *map_anchor_candidates[] = {
+        "tcp_init_sock",
+        "udp_init_sock",
+        "inet_create",
+        "inet_release",
+        "sock_init_data",
+        "sk_alloc",
+        "input_handle_event",
+        "slow_avc_audit",
+        "avc_denied",
+        "nmi_panic",
+        "panic",
+        "kern_addr_valid",
+        "set_memory_rw",
+        "set_memory_ro",
+        "free_initmem",
+    };
+
+    for (int i = 0; i < (int)(sizeof(map_anchor_candidates) / sizeof(map_anchor_candidates[0])); i++) {
+        const char *name = map_anchor_candidates[i];
+        int32_t offset = get_usable_symbol_offset_try(kallsym, img_buf, imglen, name);
+        if (offset) {
+            if (selected) *selected = name;
+            return offset;
+        }
+    }
+
+    if (selected) *selected = 0;
+    return 0;
+}
+
+// todo
+void select_map_area(kallsym_t *kallsym, char *image_buf, int imglen, int32_t *map_start, int32_t *max_size, bool is_gki)
+{
+    const char *selected = 0;
+    int32_t addr = get_map_anchor_offset(kallsym, image_buf, imglen, &selected);
+    if (!addr) {
+        tools_loge_exit("no usable map anchor symbol\n");
+    }
+    tools_logi("select map anchor: %s, offset: 0x%08x\n", selected, addr);
     
     if (!is_gki)
     {
-        // For non-GKI kernels, we can directly use the area starting from tcp_init_sock for mapping, as it is less likely to have PAC instructions.
+        // For non-GKI kernels, we can directly use the area starting from a cold text symbol for mapping.
         *map_start = align_ceil(addr, 16);
         *max_size = 0x800;
         return;
@@ -121,25 +227,46 @@ void select_map_area(kallsym_t *kallsym, char *image_buf, int32_t *map_start, in
 
 int fillin_map_symbol(kallsym_t *kallsym, char *img_buf, map_symbol_t *symbol, int32_t target_is_be)
 {
+    memset(symbol, 0, sizeof(*symbol));
+
     symbol->memblock_reserve_relo = get_symbol_offset_exit(kallsym, img_buf, "memblock_reserve");
     symbol->memblock_free_relo = get_symbol_offset_exit(kallsym, img_buf, "memblock_free");
 
     symbol->memblock_mark_nomap_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_mark_nomap");
 
     symbol->memblock_phys_alloc_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_phys_alloc_try_nid");
+    if (symbol->memblock_phys_alloc_relo) {
+        symbol->memblock_phys_alloc_type = MAP_SYM_MEMBLOCK_PHYS_ALLOC_TRY_NID;
+    }
+
     symbol->memblock_virt_alloc_relo = get_symbol_offset_zero(kallsym, img_buf, "memblock_virt_alloc_try_nid");
-    if (!symbol->memblock_phys_alloc_relo && !symbol->memblock_virt_alloc_relo)
-        tools_loge_exit("no symbol memblock_alloc");
+    if (symbol->memblock_virt_alloc_relo) {
+        symbol->memblock_virt_alloc_type = MAP_SYM_MEMBLOCK_VIRT_ALLOC_TRY_NID;
+    }
 
     uint64_t memblock_alloc_try_nid = get_symbol_offset_zero(kallsym, img_buf, "memblock_alloc_try_nid");
+    if (!symbol->memblock_phys_alloc_relo && memblock_alloc_try_nid) {
+        symbol->memblock_phys_alloc_relo = memblock_alloc_try_nid;
+        symbol->memblock_phys_alloc_type = MAP_SYM_MEMBLOCK_ALLOC_TRY_NID;
+    }
+    if (!symbol->memblock_virt_alloc_relo && memblock_alloc_try_nid) {
+        symbol->memblock_virt_alloc_relo = memblock_alloc_try_nid;
+        symbol->memblock_virt_alloc_type = MAP_SYM_MEMBLOCK_VIRT_ALLOC_FROM_ALLOC_TRY_NID;
+    }
 
-    if (!symbol->memblock_phys_alloc_relo) symbol->memblock_phys_alloc_relo = memblock_alloc_try_nid;
-    if (!symbol->memblock_virt_alloc_relo) symbol->memblock_virt_alloc_relo = memblock_alloc_try_nid;
-    if (!symbol->memblock_phys_alloc_relo && !symbol->memblock_virt_alloc_relo)
-        tools_loge_exit("no symbol memblock_alloc");
+    if (!symbol->memblock_phys_alloc_relo) {
+        tools_loge_exit("no symbol memblock_phys_alloc_try_nid or memblock_alloc_try_nid\n");
+    }
+    if (!symbol->memblock_virt_alloc_relo) {
+        tools_loge_exit("no symbol memblock_virt_alloc_try_nid or memblock_alloc_try_nid\n");
+    }
+
+    if (symbol->memblock_phys_alloc_type == MAP_SYM_MEMBLOCK_ALLOC_TRY_NID) {
+        tools_logi("use memblock_alloc_try_nid as map phys alloc\n");
+    }
 
     if ((is_be() ^ target_is_be)) {
-        for (int64_t *pos = (int64_t *)symbol; pos <= (int64_t *)symbol; pos++) {
+        for (int64_t *pos = (int64_t *)symbol; pos < (int64_t *)((char *)symbol + sizeof(*symbol)); pos++) {
             *pos = i64swp(*pos);
         }
     }
@@ -158,6 +285,11 @@ static int get_cand_arr_symbol_offset_zero(kallsym_t *kallsym, char *img_buf, ch
 
 int fillin_patch_config(kallsym_t *kallsym, char *img_buf, int imglen, patch_config_t *symbol, int32_t target_is_be)
 {
+    symbol->kallsyms_lookup_name = get_usable_symbol_offset_try(kallsym, img_buf, imglen, "kallsyms_lookup_name");
+    symbol->printk = get_symbol_offset_zero(kallsym, img_buf, "printk");
+    if (!symbol->printk) symbol->printk = get_symbol_offset_zero(kallsym, img_buf, "_printk");
+    if (!symbol->printk) tools_loge_exit("no symbol printk");
+    
     symbol->panic = get_symbol_offset_zero(kallsym, img_buf, "panic");
 
     symbol->rest_init = try_get_symbol_offset_zero(kallsym, img_buf, "rest_init");

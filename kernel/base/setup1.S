@@ -91,6 +91,14 @@ start_prepare:
     str x13, [x11, #start_map_offset_offset]
     mov x20, x13
 
+    // start_preset.sprintf_offset = setup_preset.sprintf_offset
+    ldr x13, [x10, #setup_sprintf_offset_offset]
+    str x13, [x11, #start_sprintf_offset_offset]
+
+    // start_preset.symbol_lookup_anchor_offset = setup_preset.symbol_lookup_anchor_offset
+    ldr x13, [x10, #setup_symbol_lookup_anchor_offset_offset]
+    str x13, [x11, #start_symbol_lookup_anchor_offset_offset]
+
     // memcpy(&start_preset.setup, &setup_header, KP_HEADER_SIZE);
     add x0, x11, #start_header_offset
     add x1, x12, #0
@@ -98,7 +106,8 @@ start_prepare:
     bl memcpy8
 
     // memcpy(&start_preset.patch_config, &setup_preset.patch_config, sizeof(header.patch_config));
-    add x0, x11, #start_patch_config_offset;
+    mov x3, #start_patch_config_offset
+    add x0, x11, x3
     add x1, x10, #setup_patch_config_offset
     mov x2, #PATCH_CONFIG_LEN
     bl memcpy8
