@@ -15,7 +15,7 @@
 - Inject arbitrary code into the kernel. (Static patching the kernel image or Runtime dynamic loading).
 - Kernel function inline hook and syscall table hook are provided.
 - Pure KPM module support for all root managers i.e Magisk & KernelSU/N (Except APatch).
-- Checkout our magisk/kernelsu module! [KPatch-Next-Module](https://github.com/KernelSU-Next/KPatch-Next-Module)
+- Checkout our magisk/kernelsu module! [KPatch-Next-Module-EXP](https://github.com/741afb7/KPatch-Next-Module-EXP)
 
 ## Requirement
 
@@ -46,6 +46,7 @@ Linux 3.18 - 6.12 (theoretically)
 ## Credits
 
 - [KernelPatch](https://github.com/bmax121/KernelPatch): Special thanks to the author for making this project possible.
+- [KernelSU-Next/KPatch-Next](https://github.com/KernelSU-Next/KPatch-Next): The original project of this fork.
 - [vmlinux-to-elf](https://github.com/marin-m/vmlinux-to-elf): Some ideas for parsing kernel symbols.
 - [android-inline-hook](https://github.com/bytedance/android-inline-hook): Some code for fixing arm64 inline hook instructions.
 - [tlsf](https://github.com/mattconte/tlsf): Memory allocator used for KPM. (Need another to allocate ROX memory.)
