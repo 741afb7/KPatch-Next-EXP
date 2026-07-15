@@ -20,16 +20,6 @@
 ## Requirement
 
 CONFIG_KALLSYMS=y
-CONFIG_KALLSYMS_ALL=y
-
-or
-
-CONFIG_KALLSYMS=y
-CONFIG_KALLSYMS_ALL=n (Initial support)
-
-or
-
-CONFIG_KALLSYMS=y
 
 ## Supported Versions
 
