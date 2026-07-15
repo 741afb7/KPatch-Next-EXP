@@ -158,12 +158,14 @@ typedef int32_t extra_item_type;
 #define EXTRA_TYPE_SHELL 2
 #define EXTRA_TYPE_EXEC 3
 #define EXTRA_TYPE_RAW 4
+#define EXTRA_TYPE_KCONFIG 6
 
 #define EXTRA_TYPE_NONE_STR "none"
 #define EXTRA_TYPE_KPM_STR "kpm"
 #define EXTRA_TYPE_SHELL_STR "shell"
 #define EXTRA_TYPE_EXEC_STR "exec"
 #define EXTRA_TYPE_RAW_STR "raw"
+#define EXTRA_TYPE_KCONFIG_STR "kconfig"
 
 // todo
 #define EXTRA_EVENT_PAGING_INIT "paging-init"
@@ -247,7 +249,9 @@ typedef struct _setup_preset_t
     uint8_t header_backup[HDR_BACKUP_SIZE];
     int64_t sprintf_offset;
     int64_t symbol_lookup_anchor_offset;
-    uint8_t __[SETUP_PRESERVE_LEN - 16];
+    int64_t kconfig_offset;
+    int64_t kconfig_size;
+    uint8_t __[SETUP_PRESERVE_LEN - 32];
     patch_config_t patch_config;
     char additional[ADDITIONAL_LEN];
 } setup_preset_t;
@@ -269,6 +273,8 @@ typedef struct _setup_preset_t
 #define setup_header_backup_offset (setup_map_symbol_offset + MAP_SYMBOL_SIZE)
 #define setup_sprintf_offset_offset (setup_header_backup_offset + HDR_BACKUP_SIZE)
 #define setup_symbol_lookup_anchor_offset_offset (setup_sprintf_offset_offset + 8)
+#define setup_kconfig_offset_offset (setup_symbol_lookup_anchor_offset_offset + 8)
+#define setup_kconfig_size_offset (setup_kconfig_offset_offset + 8)
 #define setup_patch_config_offset (setup_header_backup_offset + HDR_BACKUP_SIZE + SETUP_PRESERVE_LEN)
 #define setup_end (setup_patch_config_offset + PATCH_CONFIG_LEN)
 #endif

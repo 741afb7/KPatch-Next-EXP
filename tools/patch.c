@@ -98,6 +98,8 @@ int extra_str_type(const char *extra_str)
         extra_type = EXTRA_TYPE_SHELL;
     } else if (!strcmp(extra_str, EXTRA_TYPE_RAW_STR)) {
         extra_type = EXTRA_TYPE_RAW;
+    } else if (!strcmp(extra_str, EXTRA_TYPE_KCONFIG_STR)) {
+        extra_type = EXTRA_TYPE_KCONFIG;
     } else {
     }
     return extra_type;
@@ -114,9 +116,19 @@ const char *extra_type_str(extra_item_type extra_type)
         return EXTRA_TYPE_SHELL_STR;
     case EXTRA_TYPE_RAW:
         return EXTRA_TYPE_RAW_STR;
+    case EXTRA_TYPE_KCONFIG:
+        return EXTRA_TYPE_KCONFIG_STR;
     default:
         return EXTRA_TYPE_NONE_STR;
     }
+}
+
+static bool has_extra_config(extra_config_t *extra_configs, int extra_config_num, extra_item_type type)
+{
+    for (int i = 0; i < extra_config_num; i++) {
+        if (extra_configs[i].extra_type == type) return true;
+    }
+    return false;
 }
 
 static char *bytes_to_hexstr(const unsigned char *data, int len)
@@ -429,6 +441,28 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
     int kpimg_len = 0;
     read_file_align(kpimg_path, &kpimg, &kpimg_len, 0x10);
 
+    if (!has_extra_config(extra_configs, extra_config_num, EXTRA_TYPE_KCONFIG)) {
+        if (extra_config_num >= EXTRA_ITEM_MAX_NUM) tools_loge_exit("too many extra items\n");
+
+        char *kconfig_data = NULL;
+        int32_t kconfig_len = 0;
+        int kconfig_rc = extract_ikconfig(kallsym_kimg, pimg.ori_kimg_len, &kconfig_data, &kconfig_len);
+        if (!kconfig_rc) {
+            extra_config_t *config = &extra_configs[extra_config_num++];
+            memset(config, 0, sizeof(*config));
+            config->extra_type = EXTRA_TYPE_KCONFIG;
+            config->set_name = EXTRA_TYPE_KCONFIG_STR;
+            config->data = kconfig_data;
+            config->item = (patch_extra_item_t *)malloc(sizeof(patch_extra_item_t));
+            if (!config->item) tools_loge_exit("no memory for kconfig extra item\n");
+            memset(config->item, 0, sizeof(patch_extra_item_t));
+            config->item->con_size = kconfig_len;
+            tools_logi("embedding kernel config from IKCONFIG, size: 0x%x\n", kconfig_len);
+        } else {
+            tools_logw("kernel IKCONFIG extract failed, rc=%d, skip kconfig extra\n", kconfig_rc);
+        }
+    }
+
     // extra
     int extra_size = 0;
     int extra_num = 0;
@@ -446,7 +480,9 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
         }
 
         patch_extra_item_t *item = NULL;
-        if (config->is_path) {
+        if (config->item && config->data) {
+            item = config->item;
+        } else if (config->is_path) {
             // todo: free
             item = (patch_extra_item_t *)malloc(sizeof(patch_extra_item_t));
             memset(item, 0, sizeof(patch_extra_item_t));
@@ -653,6 +689,12 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
 
         int args_len = item->args_size;
         int con_len = item->con_size;
+        int con_offset = current_offset + (int)sizeof(*item) + item->args_size;
+
+        if (item->type == EXTRA_TYPE_KCONFIG) {
+            setup->kconfig_offset = con_offset - out_img_len;
+            setup->kconfig_size = con_len;
+        }
 
         if (is_be() ^ kinfo->is_be) {
             item->type = i32swp(item->type);
@@ -664,6 +706,11 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
         extra_append(out_kernel_file.kimg, (void *)item, sizeof(*item), &current_offset);
         if (args_len > 0) extra_append(out_kernel_file.kimg, (void *)config->set_args, args_len, &current_offset);
         extra_append(out_kernel_file.kimg, (void *)config->data, con_len, &current_offset);
+    }
+
+    if ((is_be() ^ kinfo->is_be)) {
+        setup->kconfig_offset = i64swp(setup->kconfig_offset);
+        setup->kconfig_size = i64swp(setup->kconfig_size);
     }
 
     // guard extra
