@@ -13,6 +13,7 @@ set(SOURCES
 	symbol.c
 	kpm.c
 	common.c
+	x86_64.c
 )
 
 add_executable(

@@ -292,5 +292,9 @@ void predata_init()
         if (*p) *p += kernel_va;
     }
 
+#ifdef CONFIG_X86_64
+    barrier();
+#else
     dsb(ish);
+#endif
 }

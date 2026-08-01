@@ -60,7 +60,6 @@ jobs:
           make
           mv kpimg kpimg-linux
           mv kpimg.elf kpimg.elf-linux
-          make clean
 
           cd ..
           cd kpms
@@ -82,6 +81,7 @@ jobs:
         with:
           path: |
             kernel/kpimg.elf-linux
+            kernel/kpimg-x86.elf
           name: kpimg.elf
 
       - name: Release
@@ -91,6 +91,7 @@ jobs:
           tag: ${{ steps.parse_version.outputs.VERSION }}
           artifacts: |
             kernel/kpimg-linux
+            kernel/kpimg-x86
             kpms/demo-hello/demo-hello.kpm
             kpms/demo-inlinehook/demo-inlinehook.kpm
             kpms/demo-syscallhook/demo-syscallhook.kpm
