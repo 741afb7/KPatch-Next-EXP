@@ -6,8 +6,6 @@
 #ifndef _KP_KPMODULE_H_
 #define _KP_KPMODULE_H_
 
-#include <uapi/scdefs.h>
-
 #define KPM_INFO(name, info, limit)                                 \
     _Static_assert(sizeof(info) <= limit, "Info string too long");  \
     static const char __kpm_info_##name[] __attribute__((__used__)) \

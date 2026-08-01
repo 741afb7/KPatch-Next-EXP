@@ -8,6 +8,7 @@
 
 #include <asm-generic/module.h>
 #include <kpmodule.h>
+#include <uapi/scdefs.h>
 
 struct load_info
 {
