@@ -24,6 +24,7 @@
 #include "patch.h"
 #include "common.h"
 #include "kpm.h"
+#include "x86_64.h"
 
 uint32_t version = 0;
 const char *program_name = NULL;
@@ -46,6 +47,8 @@ void print_usage(char **argv)
         "  -l, --list                       Print all patch informations of kernel image if (-i) specified.\n"
         "                                   Print extra item informations if (-M) specified.\n"
         "                                   Print KPatch-Next image informations if (-k) specified.\n"
+        "Unpack x86 bzImage: unpack-bzimage <bzImage> <kernel>\n"
+        "Repack x86 bzImage: repack-bzimage <bzImage> <output>\n"
 
         "Options:\n"
         "  -i, --image PATH                 Kernel image path.\n"
@@ -71,6 +74,30 @@ int main(int argc, char *argv[])
 {
     version = (MAJOR << 16) + (MINOR << 8) + PATCH;
     program_name = argv[0];
+
+    if (argc > 3 && strcmp(argv[1], "unpack-bzimage") == 0) {
+        set_log_enable(true);
+        x86_bzimage_t image;
+        if (load_x86_bzimage(argv[2], &image)) {
+            tools_loge("load x86 bzImage failed: %s\n", argv[2]);
+            return 1;
+        }
+        write_file(argv[3], image.flat, image.flat_size, false);
+        tools_logi("x86 flat kernel written: %s, size: 0x%zx\n", argv[3], image.flat_size);
+        free_x86_bzimage(&image);
+        return 0;
+    }
+    if (argc > 3 && strcmp(argv[1], "repack-bzimage") == 0) {
+        set_log_enable(true);
+        x86_bzimage_t image;
+        if (load_x86_bzimage(argv[2], &image)) {
+            tools_loge("load x86 bzImage failed: %s\n", argv[2]);
+            return 1;
+        }
+        int rc = write_x86_bzimage(&image, argv[3]);
+        free_x86_bzimage(&image);
+        return rc ? 1 : 0;
+    }
 
     struct option longopts[] = { { "help", no_argument, NULL, 'h' },
                                  { "version", no_argument, NULL, 'v' },
