@@ -310,7 +310,7 @@ static int rewrite_section_headers(struct load_info *info)
 static int move_module(struct module *mod, struct load_info *info)
 {
     // todo:
-    logki("alloc module size: %llx\n", mod->size);
+    logki("alloc module size: %x\n", mod->size);
     mod->start = kp_malloc_exec(mod->size);
     if (!mod->start) {
         return -ENOMEM;
@@ -506,7 +506,7 @@ long load_module(const void *data, int len, const char *args, const char *event,
         goto out;
     } else {
         set_load_error(info, "module init failed");
-        logkfi("[%s] failed with [%s] error: %d, try exit ...\n", mod->info.name, args, rc);
+        logkfi("[%s] failed with [%s] error: %ld, try exit ...\n", mod->info.name, args, rc);
         (*mod->exit)(reserved);
     }
 
