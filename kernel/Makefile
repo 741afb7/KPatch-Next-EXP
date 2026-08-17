@@ -23,7 +23,7 @@ X86_CC ?= gcc
 X86_LD ?= ld
 X86_OBJCOPY ?= objcopy
 
-CFLAGS += -Wall -fno-builtin -std=gnu11 -nostdinc -mgeneral-regs-only
+CFLAGS += -Wall -fno-builtin -std=gnu11 -nostdinc -mgeneral-regs-only -ffixed-x18
 CFLAGS += -g
 
 X86_CFLAGS := -Wall -Wextra -fno-builtin -fpic -fvisibility=hidden -fno-stack-protector
