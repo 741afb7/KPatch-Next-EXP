@@ -45,6 +45,11 @@ void kv()
     fprintf(stdout, "%x\n", kv);
 }
 
+int report_event(const char *event, const char *args)
+{
+    return sc_user_event(event, args);
+}
+
 void bootlog()
 {
     sc_bootlog();

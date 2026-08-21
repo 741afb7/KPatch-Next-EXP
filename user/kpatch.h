@@ -20,6 +20,7 @@ extern "C"
     void hello();
     void kpv();
     void kv();
+    int report_event(const char *event, const char *args);
 
     void bootlog();
     void panic();

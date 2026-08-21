@@ -42,6 +42,7 @@ static void usage(int status)
                 "hello              If KPatch-Next installed, '%s' will be echoed.\n"
                 "kpver              Print KPatch-Next version.\n"
                 "kver               Print Kernel version.\n"
+                "event              Report a userspace event to kpimg.\n"
                 "kpm                KPatch-Next Module manager.\n"
                 "exclude_set        Manage the exclude list.\n"
                 "exclude_get        Get exclude list status.\n"
@@ -71,6 +72,7 @@ int main(int argc, char **argv)
         { "hello", SUPERCALL_HELLO },
         { "kpver", SUPERCALL_KERNELPATCH_VER },
         { "kver", SUPERCALL_KERNEL_VER },
+        { "event", 'E' },
         { "", 'K' },
         { "kpm", 'k' },
         { "exclude_set", 'e' },
@@ -105,6 +107,9 @@ int main(int argc, char **argv)
     case SUPERCALL_KERNEL_VER:
         kv();
         return 0;
+    case 'E':
+        if (argc < 3) error(-EINVAL, 0, "event name does not exist");
+        return report_event(argv[2], argc < 4 ? NULL : argv[3]);
     case 'k':
         strcat(program_name, " kpm");
         return kpm_main(argc - 1, argv + 1);

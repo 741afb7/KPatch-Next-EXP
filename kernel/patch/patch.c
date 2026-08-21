@@ -115,6 +115,7 @@ void extra_event_init_args(const char *event, const char *args)
 {
     if (!event) return;
     log_boot("event: %s\n", event);
+    if (!strcmp(event, EXTRA_EVENT_POST_FS_DATA)) load_installed_kpm_modules();
     notify_modules_event(event, args, 0);
     on_each_extra_item(extra_event_load_kpm, (void *)event);
 }

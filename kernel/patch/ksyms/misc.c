@@ -450,6 +450,7 @@ void kfunc_def(putname)(struct filename *name) = 0;
 void kfunc_def(final_putname)(struct filename *name) = 0;
 
 loff_t kfunc_def(vfs_llseek)(struct file *file, loff_t offset, int whence) = 0;
+int kfunc_def(iterate_dir)(struct file *, struct dir_context *) = 0;
 
 static void _linux_fs_sym_match(const char *name, unsigned long addr)
 {
@@ -470,6 +471,7 @@ static void _linux_fs_sym_match(const char *name, unsigned long addr)
     // kfunc_match(putname, name, addr);
     // kfunc_match(final_putname, name, addr);
     kfunc_match(vfs_llseek, name, addr);
+    kfunc_match(iterate_dir, name, addr);
 }
 
 #include <linux/stacktrace.h>
