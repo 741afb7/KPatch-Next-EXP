@@ -18,8 +18,8 @@
 extern int task_ext_size;
 
 /**
- * @brief An extension of task_struct, stored in the kernel thread stack, 
- * can be used to store task-local(thread-local) variables. 
+ * @brief Per-task state stored in the task extension slot table.
+ * It can be used to store task-local(thread-local) variables.
  * This can be very useful if you need to pass thread-local variables across multiple hook points.
  * 
  * Task-local variables can be dynamically expanded.
@@ -33,8 +33,6 @@ struct task_ext
     int size;
     pid_t pid;
     pid_t tgid;
-    bool root;
-    bool sel_allow;
     bool priv_sel_allow;
     // last
     int _magic;

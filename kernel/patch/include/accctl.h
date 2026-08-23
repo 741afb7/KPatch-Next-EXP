@@ -6,23 +6,10 @@
 #ifndef _KP_ACCCTL_H_
 #define _KP_ACCCTL_H_
 
-#include <ktypes.h>
-#include <linux/cred.h>
-#include <linux/spinlock.h>
 #include <linux/sched.h>
-#include <uapi/scdefs.h>
 #include <pgtable.h>
 #include <taskext.h>
 #include <asm/current.h>
-
-extern char all_allow_sctx[SUPERCALL_SCONTEXT_LEN];
-extern uint32_t all_allow_sid;
-
-int set_all_allow_sctx(const char *sctx);
-int commit_kernel_su();
-int commit_common_su(uid_t to_uid, const char *sctx);
-int commit_su(uid_t uid, const char *sctx);
-int task_su(pid_t pid, uid_t to_uid, const char *sctx);
 
 /**
  * @brief Whether to make the current task bypass all selinux permission checks.

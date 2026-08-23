@@ -2,7 +2,6 @@
 #include <ksyms.h>
 #include <kallsyms.h>
 #include <hook.h>
-#include <accctl.h>
 #include <linux/sched.h>
 #include <linux/sched/task.h>
 #include <linux/cred.h>
