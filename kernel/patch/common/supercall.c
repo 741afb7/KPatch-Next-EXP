@@ -20,7 +20,6 @@
 #include <linux/sched.h>
 #include <linux/security.h>
 #include <syscall.h>
-#include <accctl.h>
 #include <module.h>
 #include <kputils.h>
 #include <linux/err.h>

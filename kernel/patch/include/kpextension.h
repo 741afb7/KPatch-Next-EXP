@@ -6,10 +6,9 @@
 #ifndef _KP_KPEXTENSION_H_
 #define _KP_KPEXTENSION_H_
 
-extern const char sh_path[];
+#include <ktypes.h>
 
-int su_add_allow_uid(uid_t uid, uid_t to_uid, const char *scontext);
-int is_su_allow_uid(uid_t uid);
+extern const char sh_path[];
 
 int get_ap_mod_exclude(uid_t uid);
 int set_ap_mod_exclude(uid_t uid, int exclude);

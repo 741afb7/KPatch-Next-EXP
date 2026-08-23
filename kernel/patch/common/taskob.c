@@ -33,7 +33,7 @@
  * keyed by the task pointer.
  *
  * A slot is NOT allocated for every fork: only tasks whose parent carries an
- * active task-local privilege state get one, plus tasks that explicitly
+ * active task-local SELinux bypass state get one, plus tasks that explicitly
  * request task-local state (see kf_task_ext_ensure). Tasks without such state
  * return the shared task_ext_invalid, which the security checks treat as
  * "no bypass". This keeps the table nearly empty regardless of thread count.
@@ -157,14 +157,14 @@ static void prepare_task_ext(struct task_struct *new, struct task_struct *old)
 {
     struct task_ext *old_ext = get_task_ext(old);
     /*
-     * Slots are only needed when a task carries an active task-local privilege
-     * state: a task without one holds no ext (invalid = shared
+     * Slots are only needed when a task carries an active task-local SELinux
+     * bypass state: a task without one holds no ext (invalid = shared
      * task_ext_invalid), which is normal, not an error. When such a task forks,
      * the child receives a slot so the state is inherited. This keeps the table
      * from filling up with one entry per thread.
      */
     if (unlikely(!task_ext_valid(old_ext))) return;
-    if (!(old_ext->sel_allow || old_ext->priv_sel_allow)) return;
+    if (!old_ext->priv_sel_allow) return;
 
     struct task_ext *new_ext = task_ext_create(new);
     if (!new_ext) {
@@ -175,7 +175,6 @@ static void prepare_task_ext(struct task_struct *new, struct task_struct *old)
 
     new_ext->pid = __task_pid_nr_ns(new, PIDTYPE_PID, 0);
     new_ext->tgid = __task_pid_nr_ns(new, PIDTYPE_TGID, 0);
-    new_ext->sel_allow = old_ext->sel_allow;
     new_ext->priv_sel_allow = old_ext->priv_sel_allow;
 
     dsb(ish);
