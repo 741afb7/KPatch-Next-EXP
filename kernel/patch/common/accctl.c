@@ -79,9 +79,9 @@ int commit_common_su(uid_t to_uid, const char *sctx)
 {
     int rc = 0;
     struct task_struct *task = current;
-    struct task_ext *ext = get_task_ext(task);
-    if (unlikely(!task_ext_valid(ext))) {
-        logkfe("dirty task_ext, pid(maybe dirty): %d\n", ext->pid);
+    struct task_ext *ext = kf_task_ext_ensure(task);
+    if (unlikely(!ext || !task_ext_valid(ext))) {
+        logkfe("task_ext ensure failed, pid(maybe dirty): %d\n", ext ? ext->pid : -1);
         rc = -ENOMEM;
         goto out;
     }
@@ -110,8 +110,8 @@ int commit_common_su(uid_t to_uid, const char *sctx)
     commit_creds(new);
 
 out:
-    logkfi("pid: %d, tgid: %d, to_uid: %d, sctx: %s, via_hook: %d\n", ext->pid, ext->tgid, to_uid, sctx,
-           ext->sel_allow);
+    logkfi("pid: %d, tgid: %d, to_uid: %d, sctx: %s, via_hook: %d\n", ext ? ext->pid : -1, ext ? ext->tgid : -1,
+           to_uid, sctx, ext ? ext->sel_allow : 0);
     return rc;
 }
 
@@ -134,10 +134,10 @@ int task_su(pid_t pid, uid_t to_uid, const char *sctx)
         logkfe("no such pid: %d\n", pid);
         return -ESRCH;
     }
-    struct task_ext *ext = get_task_ext(task);
+    struct task_ext *ext = kf_task_ext_ensure(task);
 
-    if (unlikely(!task_ext_valid(ext))) {
-        logkfe("dirty task_ext, pid(maybe dirty): %d\n", ext->pid);
+    if (unlikely(!ext || !task_ext_valid(ext))) {
+        logkfe("task_ext ensure failed, pid(maybe dirty): %d\n", ext ? ext->pid : -1);
         rc = -ENOMEM;
         goto out;
     }
