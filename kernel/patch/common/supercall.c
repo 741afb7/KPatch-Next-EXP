@@ -65,6 +65,23 @@ static long call_buildtime(char __user *out_buildtime, int u_len)
     return rc;
 }
 
+static long call_user_event(const char __user *uevent, const char __user *uargs)
+{
+    char event[EXTRA_EVENT_LEN], args[KPM_ARGS_LEN];
+    long event_len, args_len = 0;
+
+    if (!uevent) return -EINVAL;
+    event_len = compat_strncpy_from_user(event, uevent, sizeof(event));
+    if (event_len <= 0) return -EINVAL;
+
+    if (uargs) {
+        args_len = compat_strncpy_from_user(args, uargs, sizeof(args));
+        if (args_len < 0) return args_len;
+    }
+    extra_event_init_args(event, args_len <= 0 ? 0 : args);
+    return 0;
+}
+
 static long call_kpm_load(const char __user *arg1, const char *__user arg2, void *__user reserved)
 {
     char path[1024], args[KPM_ARGS_LEN];
@@ -156,6 +173,8 @@ static long supercall(long cmd, long arg1, long arg2, long arg3, long arg4)
         return kver;
     case SUPERCALL_BUILD_TIME:
         return call_buildtime((char *__user)arg1, (int)arg2);
+    case SUPERCALL_USER_EVENT:
+        return call_user_event((const char *__user)arg1, (const char *__user)arg2);
     }
 
     switch (cmd) {
