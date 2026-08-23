@@ -57,6 +57,12 @@ static inline uint32_t sc_k_ver(void)
     return (uint32_t)ret;
 }
 
+static inline long sc_user_event(const char *event, const char *args)
+{
+    if (!event || strlen(event) <= 0) return -EINVAL;
+    return syscall(__NR_supercall, NULL, compact_cmd(SUPERCALL_USER_EVENT), event, args);
+}
+
 static inline long sc_kpm_load(const char *path, const char *args, void *reserved)
 {
     if (!path || strlen(path) <= 0) return -EINVAL;
