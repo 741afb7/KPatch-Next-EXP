@@ -51,8 +51,8 @@ struct kernel_storage
 #define SUPERCALL_KSTORAGE_REMOVE 0x1044
 #define SUPERCALL_KSTORAGE_REMOVE_GROUP 0x1045
 
-#define KSTORAGE_SU_LIST_GROUP 0
-#define KSTORAGE_EXCLUDE_LIST_GROUP 1
+#define KSTORAGE_EXCLUDE_LIST_GROUP 0
+#define KSTORAGE_UNUSED_GROUP_1 1
 #define KSTORAGE_UNUSED_GROUP_2 2
 #define KSTORAGE_UNUSED_GROUP_3 3
 
@@ -61,15 +61,6 @@ struct kernel_storage
 
 #define SUPERCALL_REHOOK_SYSCALL 0x1100
 #define SUPERCALL_REHOOK_STATUS 0x1101
-
-#define SUPERCALL_SCONTEXT_LEN 0x60
-
-struct su_profile
-{
-    uid_t uid;
-    uid_t to_uid;
-    char scontext[SUPERCALL_SCONTEXT_LEN];
-};
 
 #define SUPERCALL_MAX 0x1200
 
