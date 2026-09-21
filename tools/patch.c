@@ -158,7 +158,7 @@ static const uint8_t *preset_header_backup(const preset_t *preset)
     size_t current_header_backup_offset = offsetof(setup_preset_t, header_backup);
 
     uint32_t ver_num = preset_version_num(preset);
-    if (ver_num <= VERSION(0, 13, 1)) {
+    if (ver_num <= VERSION(0, 13, 7)) {
         push_header_backup_candidate(candidates, &candidate_num, current_header_backup_offset - 16);
         push_header_backup_candidate(candidates, &candidate_num, current_header_backup_offset);
     } else {
