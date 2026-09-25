@@ -581,7 +581,7 @@ void syscall_dispatch_init(void)
     uintptr_t addr = 0;
     const char *name = 0;
     int granular = 0;
-    addr = kallsyms_lookup_name("invoke_syscall");
+    addr = kallsyms_lookup_name_by_suffix("invoke_syscall");
     if (addr) {
         name = "invoke_syscall";
         granular = 1;
