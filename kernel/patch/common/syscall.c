@@ -594,9 +594,21 @@ void syscall_dispatch_init(void)
         }
     }
     if (!addr) {
-        addr = kallsyms_lookup_name("el0_svc_common");
-        if (addr) name = "el0_svc_common";
+        addr = kallsyms_lookup_name_by_suffix("el0_svc_common");
+        if (addr) {
+            name = "el0_svc_common";
+            uint32_t *insn = (uint32_t *)addr;
+            if (insn[1] != 0xa9bd7bfd) {
+                log_boot("Shadow Call Stack detected , bypass union syscall hook\n");
+                return;
+            }else{
+                log_boot("Shadow Call Stack not detected, proceed with union syscall hook\n");
+            }
+        }
     }
+
+
+    
     if (!addr) {
         addr = kallsyms_lookup_name_by_suffix("el0_svc_common");
         if (addr) name = "el0_svc_common.<suffix>";
