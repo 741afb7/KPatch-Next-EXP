@@ -491,6 +491,7 @@ void __noinline _paging_init()
     ((memblock_reserve_f)data->map_symbol.memblock_reserve_relo)(old_start_pa, reserve_size);
     // alloc
     uint64_t start_pa = map_phys_alloc(data, all_size, page_size);
+    // mark all size nomap
     if (data->map_symbol.memblock_mark_nomap_relo)
         ((memblock_mark_nomap_f)(data->map_symbol.memblock_mark_nomap_relo))(start_pa, all_size);
 

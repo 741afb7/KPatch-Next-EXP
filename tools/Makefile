@@ -15,6 +15,8 @@ all: kptools
 kptools: ${objs}
 	${CC} -o $@ $^ $(LDFLAGS)
 
+kptools.o: ../version
+
 %.o : %.c
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
 
