@@ -2,12 +2,10 @@
 /*
  * Copyright (C) 2023 bmax121. All Rights Reserved.
  *
- * arm64 read-only memory patching via the kernel's own text-patch API.
- * aarch64_insn_patch_text_nosync() handles the rodata write + icache/dcache
- * flush correctly (through its own fixmap / alias path) and does not take
- * stop_machine, so calling it from a syscall/supercall context cannot deadlock
- * with RCU/membarrier tasks on other CPUs. We patch sys_call_table[nr] (a
- * plain 8-byte pointer) and, for KPMs, inline hooks on kernel text.
+ * arm64 read-only memory patching through a fixmap alias. This avoids relying
+ * on kernel-private text-patch helper ABIs that vary across target kernels.
+ * We patch sys_call_table[nr] (a plain 8-byte pointer) and, for KPMs, inline
+ * hooks on kernel text, then flush the required caches.
  */
 #ifdef __aarch64__
 
@@ -24,10 +22,6 @@
 #include <asm/barrier.h>
 
 #include "../include/kp_lkm.h"
-
-/* Resolved at init from kallsyms (not exported to modules on GKI). */
-typedef void (*kp_aarch64_insn_patch_text_t)(void *addr, u32 insn);
-static kp_aarch64_insn_patch_text_t kp_insn_patch_text;
 
 /* Detect the dcache flush API: android13-5.10 backported dcache_clean_inval_poc,
  * android12-5.10 still has __flush_dcache_area. Kbuild sets KP_NEW_DCACHE_FLUSH. */
@@ -98,8 +92,8 @@ static unsigned long kp_phys_from_virt(unsigned long addr)
 	return __pte_to_phys(*pte) + (addr & ~PAGE_MASK);
 }
 
-/* Data (rodata) poke through a fixmap; page-align the phys for set_fixmap_offset
- * and add the offset back. Used only for sys_call_table pointer writes. */
+/* Poke read-only kernel memory through a fixmap; page-align the phys for
+ * set_fixmap_offset and add the offset back. */
 __attribute__((no_sanitize("cfi")))
 static int kp_patch_data(void *dst, const void *src, size_t len)
 {
@@ -119,48 +113,24 @@ static int kp_patch_data(void *dst, const void *src, size_t len)
 
 int kp_patch_memory_init(void)
 {
-	/* aarch64_insn_patch_text() is not exported to modules on GKI, resolve it
-	 * by name. It runs under stop_machine (safe text update: every CPU is
-	 * parked, so no one executes the half-patched instruction), which is what
-	 * an inline KPM hook on a hot kernel function needs. Called from a KPM load
-	 * (syscall context) this is still safe: stop_machine completes quickly here
-	 * because a KPM load is a rare, user-triggered operation, whereas the
-	 * nosync variant let another CPU run the stale instruction and died on the
-	 * big cores (watchdog bite). */
-	kp_insn_patch_text = (kp_aarch64_insn_patch_text_t)kp_resolve_symbol("aarch64_insn_patch_text");
-	if (!kp_insn_patch_text) {
-		logke("failed to resolve aarch64_insn_patch_text\n");
-		return -ENOENT;
-	}
+	/* init_mm is not exported to modules on GKI. It is needed to resolve the
+	 * physical address for the fixmap write path used for both text and data. */
 	kp_patch_init_mm = (struct mm_struct *)kp_resolve_symbol("init_mm");
 	if (!kp_patch_init_mm)
 		logkw("failed to resolve init_mm; data (sys_call_table) patch disabled\n");
-	logki("aarch64_insn_patch_text resolved\n");
+	logki("patch memory ready (fixmap poke; aarch64_insn_patch_text not used)\n");
 	return 0;
 }
 
-/* CFI-enabled kernels type-check indirect calls; this function pointer to a
- * kernel text-patch helper was resolved by name and has no LKM-side CFI entry,
- * so the indirect call must skip CFI or the kernel panics (__cfi_check_fail). */
+/* Patch through a fixmap alias. This avoids depending on kernel-private
+ * aarch64_insn_patch_text ABIs, which differ between kernel trees/builds. */
 __attribute__((no_sanitize("cfi")))
 int kp_patch_text(void *dst, const void *src, size_t len, int flags)
 {
-	/* Text (KPM inline hook): aarch64_insn_patch_text runs under stop_machine,
-	 * safe on a hot kernel function. Data (sys_call_table pointer): fixmap poke
-	 * only; aarch64_insn_patch_text on a rodata data word faults in its callback.
-	 * Callers pass FLUSH_ICACHE for text, FLUSH_DCACHE for data. */
-	if (flags & KP_PATCH_TEXT_FLUSH_ICACHE) {
-		const u32 *in = src;
-		unsigned int n = len / sizeof(*in);
-		for (unsigned int i = 0; i < n; i++) {
-			u32 insn;
-			if (copy_from_kernel_nofault(&insn, &in[i], sizeof(insn)))
-				return -EFAULT;
-			kp_insn_patch_text((u8 *)dst + i * sizeof(u32), insn);
-		}
-		return 0;
-	}
-	return kp_patch_data(dst, src, len);
+	int ret = kp_patch_data(dst, src, len);
+	if (!ret && (flags & KP_PATCH_TEXT_FLUSH_ICACHE))
+		kp_flush_icache((unsigned long)dst, (unsigned long)dst + len);
+	return ret;
 }
 
 #endif /* __aarch64__ */
