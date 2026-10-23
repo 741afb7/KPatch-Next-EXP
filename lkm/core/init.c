@@ -10,6 +10,7 @@
 #include "../hook/hook_runtime.h"
 #include "../supercall/supercall.h"
 #include "../kpm/module.h"
+#include "../infra/secpass.h"
 
 /* Some Android 12 5.10 vendor kernels need the module-local canary setup. */
 #if defined(CONFIG_STACKPROTECTOR) && defined(CONFIG_ARM64) && defined(MODULE) && \
@@ -62,6 +63,10 @@ int __init kernelpatch_init(void)
 	if (rc)
 		logkw("KPM hook runtime unavailable: %d\n", rc);
 
+	rc = kp_bypass_kcfi();
+	if (rc)
+		logkw("CFI bypass failed: %d\n", rc);
+
 	rc = kp_kpm_init();
 	if (rc)
 		logkw("KPM loader init failed: %d\n", rc);
@@ -77,6 +82,9 @@ int __init kernelpatch_init(void)
 static void __exit kernelpatch_exit(void)
 {
 	kp_supercall_uninstall();
+	/* Unhook the CFI bypass last so it shields the other teardown from
+	 * spurious CFI failures on LKM/KPM text. */
+	kp_bypass_kcfi_exit();
 	logki("KernelPatch LKM unloaded\n");
 }
 

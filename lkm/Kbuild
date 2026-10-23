@@ -8,6 +8,7 @@ kernelpatch-objs := \
 	infra/patch_memory.o \
 	infra/syscall_table.o \
 	infra/sha256.o \
+	infra/secpass.o \
 	supercall/supercall.o \
 	supercall/dispatch.o \
 	hook/hook_engine.o \
@@ -59,3 +60,6 @@ CFLAGS_hook/hook_engine.o += -fno-unwind-tables -fno-asynchronous-unwind-tables
 CFLAGS_hook/hook_engine.o += -fno-lto -std=gnu11 -Wno-strict-prototypes
 CFLAGS_hook/hook_engine.o += -fno-sanitize=shadow-call-stack
 CFLAGS_hook/hook_engine.o += -mbranch-protection=bti
+# secpass calls kernel function pointers through backup variables; exempt from
+# CFI so the backup calls don't recurse into the CFI slowpath.
+CFLAGS_infra/secpass.o += -fno-sanitize=cfi
