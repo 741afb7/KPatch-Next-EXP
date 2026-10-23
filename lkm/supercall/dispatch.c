@@ -3,6 +3,7 @@
 #include "dispatch.h"
 
 #include <linux/errno.h>
+#include <linux/types.h>
 #include <scdefs.h>
 
 #include "../include/kp_lkm.h"
@@ -10,7 +11,8 @@
 
 long kp_handle_supercall(long cmd, long a1, long a2, long a3, long a4)
 {
-	logkd("supercall cmd 0x%lx a1=%lx a2=%lx a3=%lx a4=%lx\n", cmd, a1, a2, a3, a4);
+	/* Supercall arguments can contain user pointers or other sensitive data. */
+	logkd("supercall cmd 0x%lx\n", cmd);
 
 	switch (cmd) {
 	case SUPERCALL_HELLO:
