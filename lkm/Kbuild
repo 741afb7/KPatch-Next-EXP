@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Experimental KernelPatch LKM backend for KPatch-Next.
+obj-$(CONFIG_KP_LKM) += kernelpatch.o
+
+kernelpatch-objs := \
+	core/init.o \
+	infra/symbol_resolver.o \
+	infra/patch_memory.o \
+	infra/syscall_table.o \
+	infra/sha256.o \
+	supercall/supercall.o \
+	supercall/dispatch.o \
+	hook/hook_engine.o \
+	hook/hook_runtime.o \
+	kpm/module.o \
+	kpm/relo.o \
+	kpm/insn.o \
+	kpm/symbols.o \
+	kpm/kpm.o
+
+ifeq ($(filter /%,$(src)),)
+KP_LKM_DIR := $(srctree)/$(src)
+else
+KP_LKM_DIR := $(src)
+endif
+
+ccflags-y += -I$(KP_LKM_DIR)/include
+ccflags-y += -I$(KP_LKM_DIR)/../kernel/patch/include/uapi
+ccflags-y += -I$(KP_LKM_DIR)/../kernel/patch/include
+ccflags-y += -I$(KP_LKM_DIR)/../kernel/include
+
+KP_VERSION_FILE := $(KP_LKM_DIR)/../version
+KP_LKM_MAJOR := $(shell sed -n 's/^[[:space:]]*#define[[:space:]]*MAJOR[[:space:]]*\([0-9][0-9]*\).*/\1/p' $(KP_VERSION_FILE))
+KP_LKM_MINOR := $(shell sed -n 's/^[[:space:]]*#define[[:space:]]*MINOR[[:space:]]*\([0-9][0-9]*\).*/\1/p' $(KP_VERSION_FILE))
+KP_LKM_PATCH := $(shell sed -n 's/^[[:space:]]*#define[[:space:]]*PATCH[[:space:]]*\([0-9][0-9]*\).*/\1/p' $(KP_VERSION_FILE))
+ifeq ($(strip $(KP_LKM_MAJOR)),)
+KP_LKM_MAJOR := 0
+endif
+ifeq ($(strip $(KP_LKM_MINOR)),)
+KP_LKM_MINOR := 13
+endif
+ifeq ($(strip $(KP_LKM_PATCH)),)
+KP_LKM_PATCH := 10
+endif
+ccflags-y += -DKP_LKM_MAJOR=$(KP_LKM_MAJOR) -DKP_LKM_MINOR=$(KP_LKM_MINOR) -DKP_LKM_PATCH=$(KP_LKM_PATCH)
+
+ifeq ($(CONFIG_ARM64),y)
+KP_NEW_DCACHE_FLUSH := $(shell grep -q __flush_dcache_area $(srctree)/arch/arm64/include/asm/cacheflush.h; echo $$?)
+ccflags-y += -DKP_NEW_DCACHE_FLUSH=$(KP_NEW_DCACHE_FLUSH)
+endif
+
+ccflags-y += -Wno-declaration-after-statement -Wno-unused-function -Wno-unused-variable
+ccflags-y += -Wno-int-conversion -Wno-gcc-compat -Wno-missing-prototypes
+
+# The shared hook engine has its own trampoline ABI and must not inherit the
+# module's CFI/LTO/PAC assumptions at indirect-call boundaries.
+CFLAGS_hook/hook_engine.o += -fno-sanitize=cfi -fno-stack-protector -fno-jump-tables
+CFLAGS_hook/hook_engine.o += -fno-unwind-tables -fno-asynchronous-unwind-tables
+CFLAGS_hook/hook_engine.o += -fno-lto -std=gnu11 -Wno-strict-prototypes
+CFLAGS_hook/hook_engine.o += -fno-sanitize=shadow-call-stack
+CFLAGS_hook/hook_engine.o += -mbranch-protection=bti

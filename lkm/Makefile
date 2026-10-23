@@ -1,0 +1,11 @@
+KDIR := $(KDIR)
+MDIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+ODIR := $(MDIR)
+
+.PHONY: all clean
+
+all:
+	make -C $(KDIR) M=$(ODIR) src=$(MDIR) modules -j$(shell nproc)
+
+clean:
+	make -C $(KDIR) M=$(ODIR) src=$(MDIR) clean

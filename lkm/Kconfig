@@ -1,0 +1,12 @@
+# Keep a new line here because external build scripts may append config.
+menu "KPatch-Next experimental LKM"
+
+config KP_LKM
+	tristate "KPatch-Next LKM support"
+	depends on MODULES && ARM64
+	default n
+	help
+	  Build the experimental KPatch-Next LKM backend. The module provides
+	  root-only KPM supercalls and is an alternative to the patched kpimg path.
+
+endmenu
