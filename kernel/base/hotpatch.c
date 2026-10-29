@@ -135,14 +135,21 @@ int hotpatch(void *addrs[], uint32_t values[], int cnt)
     };
     if (cnt <= 0) return -EINVAL;
     if (kver < VERSION(4, 6, 0)) {
-        if (kfunc(aarch64_insn_patch_text)) return kfunc(aarch64_insn_patch_text)(addrs, values, cnt);
+        /* Legacy: use the kernel's own aarch64_insn_patch_text() when available —
+         * this is the path fp_hook/hook_install used before the hotpatch
+         * migration and the one that boots 4.x.  fall back to a direct write
+         * only if it cannot be resolved. */
+        if (kver >= VERSION(4, 4, 255)) {
+            if (kfunc(aarch64_insn_patch_text)) return kfunc(aarch64_insn_patch_text)(addrs, values, cnt);
+        }
         for (int i = 0; i < cnt; ++i) {
             int rc = hotpatch_nosync(addrs[i], values[i]);
             if (rc) return rc;
         }
         return 0;
     }
-    if (!kfunc(stop_machine) || is_interrupt_masked() || !cpu_online_mask || !kvar(nr_cpu_ids) || num_online_cpus() == 1) {
+    if (!kfunc(stop_machine) || is_interrupt_masked() || !cpu_online_mask || !kvar(nr_cpu_ids) ||
+        num_online_cpus() == 1) {
         atomic_dec_return(&patch.index);
         return hotpatch_cb(&patch);
     }
@@ -176,7 +183,7 @@ void hotpatch_symbol_init()
 int hotpatch_init()
 {
     if (kver < VERSION(4, 6, 0)) {
-        log_boot("hotpatch backend: legacy aarch64_insn_patch_text\n");
+        log_boot("hotpatch backend: legacy aarch64_insn_patch_text");
         return 0;
     }
     alias_page = vmalloc(page_size);
